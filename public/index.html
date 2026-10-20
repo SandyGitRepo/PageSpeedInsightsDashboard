@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PageSpeed Monitor</title>
+  <meta name="description" content="Google PageSpeed Insights scores, availability and response time for monitored pages.">
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/vendor/chart.umd.js" defer></script>
+  <script src="/app.js" type="module"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap topbar-inner">
+      <a class="brand" href="/">
+        <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+          <rect width="32" height="32" rx="8" fill="currentColor" opacity="0.14"/>
+          <path d="M7 21a9 9 0 1 1 18 0" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+          <path d="M16 21l5-6" stroke="#4ade80" stroke-width="2.5" stroke-linecap="round"/>
+          <circle cx="16" cy="21" r="2" fill="#4ade80"/>
+        </svg>
+        <span>PageSpeed Monitor</span>
+      </a>
+      <p class="refresh-note" id="refresh-note" role="status">This page refreshes automatically every 30 seconds, no need to reload.</p>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="page-head">
+      <p class="eyebrow">Performance overview</p>
+      <h1 id="page-title">All projects</h1>
+      <p class="muted" id="status-line">Loading…</p>
+    </div>
+
+    <form id="filters" class="toolbar" aria-label="Filters">
+      <label>Project
+        <select name="project" id="f-project"><option value="">All projects</option></select>
+      </label>
+      <label>Page URL
+        <select name="url" id="f-url"><option value="">All URLs</option></select>
+      </label>
+      <label>Device
+        <select name="strategy" id="f-strategy">
+          <option value="">Mobile &amp; desktop</option>
+          <option value="mobile">Mobile</option>
+          <option value="desktop">Desktop</option>
+        </select>
+      </label>
+      <label>Metric
+        <select name="metric" id="f-metric">
+          <option value="performance">Performance</option>
+          <option value="accessibility">Accessibility</option>
+          <option value="best_practices">Best practices</option>
+          <option value="seo">SEO</option>
+        </select>
+      </label>
+      <label>Time range
+        <select name="range" id="f-range">
+          <option value="1h">Last hour</option>
+          <option value="6h">Last 6 hours</option>
+          <option value="24h" selected>Last 24 hours</option>
+          <option value="7d">Last 7 days</option>
+          <option value="30d">Last 30 days</option>
+          <option value="custom">Custom…</option>
+        </select>
+      </label>
+      <label class="custom-range" hidden>From
+        <input type="datetime-local" name="from" id="f-from">
+      </label>
+      <label class="custom-range" hidden>To
+        <input type="datetime-local" name="to" id="f-to">
+      </label>
+    </form>
+
+    <section class="kpis" id="kpis" aria-label="Key figures"></section>
+
+    <section class="card">
+      <div class="card-head">
+        <div>
+          <h2>Latest scores</h2>
+          <p class="card-sub">Most recent PageSpeed performance score per page. Click a score to open its report.</p>
+        </div>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th class="hide-sm">Project</th>
+              <th>Page URL</th>
+              <th class="num">Mobile</th>
+              <th class="num">Desktop</th>
+              <th>Last checked</th>
+            </tr>
+          </thead>
+          <tbody id="latest-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <div>
+          <h2 id="chart-title">Performance score over time</h2>
+          <p class="card-sub">Solid line = mobile · dashed line = desktop. Click a point to open that report.</p>
+        </div>
+      </div>
+      <div class="chart-box">
+        <canvas id="chart" aria-label="Score over time chart" role="img"></canvas>
+        <p class="empty" id="chart-empty" hidden>No data for the selected filters yet.</p>
+      </div>
+    </section>
+
+    <section class="card" id="uptime-card">
+      <div class="card-head">
+        <div>
+          <h2>Availability and response time by location · India</h2>
+          <p class="card-sub" id="uptime-sub">HTTP checks from probes in Indian cities.</p>
+        </div>
+      </div>
+      <div class="table-scroll">
+        <table class="uptime-table">
+          <thead>
+            <tr>
+              <th>Location</th>
+              <th class="num">Availability</th>
+              <th class="num hide-sm">Down duration</th>
+              <th class="num hide-sm">Downtimes</th>
+              <th class="hide-sm">Last downtime</th>
+              <th class="bar-col">Avg response time</th>
+            </tr>
+          </thead>
+          <tbody id="uptime-body"></tbody>
+        </table>
+      </div>
+      <ul class="legend" id="uptime-legend" aria-label="Response time legend"></ul>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <div>
+          <h2>Hit history</h2>
+          <p class="card-sub" id="history-count"></p>
+        </div>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th class="hide-sm">Project</th>
+              <th class="hide-sm">Page URL</th>
+              <th>Device</th>
+              <th class="num">Perf</th>
+              <th class="num hide-sm">A11y</th>
+              <th class="num hide-sm">Best pr.</th>
+              <th class="num hide-sm">SEO</th>
+              <th class="num">LCP</th>
+              <th class="num hide-sm">CLS</th>
+              <th>Report</th>
+            </tr>
+          </thead>
+          <tbody id="history-body"></tbody>
+        </table>
+      </div>
+      <nav class="pager" aria-label="History pages">
+        <button type="button" id="prev-page">‹ Newer</button>
+        <span id="page-info" class="muted small"></span>
+        <button type="button" id="next-page">Older ›</button>
+      </nav>
+    </section>
+  </main>
+
+  <div class="tooltip" id="tooltip" role="tooltip" hidden></div>
+
+  <footer class="wrap footer">
+    Scores from the Google PageSpeed Insights API · Availability from <a href="https://globalping.io" target="_blank" rel="noopener noreferrer">Globalping</a> probes
+  </footer>
+</body>
+</html>
