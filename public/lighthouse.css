@@ -1,4 +1,7 @@
 /* Only styles the bar above the Lighthouse report; the report brings its own CSS. */
+@font-face { font-family: "Rubik"; font-style: normal; font-weight: 400; font-display: swap; src: url("/fonts/rubik-400.woff2") format("woff2"); }
+@font-face { font-family: "Rubik"; font-style: normal; font-weight: 500; font-display: swap; src: url("/fonts/rubik-500.woff2") format("woff2"); }
+
 body { margin: 0; }
 
 .hit-bar {
@@ -7,11 +10,17 @@ body { margin: 0; }
   align-items: center;
   gap: 4px 16px;
   padding: 8px 16px;
-  font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font: 14px/1.4 "Rubik", system-ui, -apple-system, "Segoe UI", sans-serif;
   background: #002953;
   border-bottom: 3px solid #ff6700;
-  color: #e6e8eb;
+  color: #e5eaf7;
 }
-.hit-bar a { color: #8ab4ff; }
-.hit-bar #hit-meta { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.hit-bar a { color: #8ab4ff; white-space: nowrap; }
+/* Takes the remaining space, and drops to its own line before it gets squeezed. */
+.hit-bar #hit-meta { flex: 1 1 260px; min-width: 0; }
 .hit-bar .error { color: #ff7b72; }
+
+@media (max-width: 640px) {
+  .hit-bar { justify-content: space-between; padding: 8px 12px; font-size: 13px; }
+  .hit-bar #hit-meta { order: 3; flex-basis: 100%; color: #b6c2d4; font-size: 12px; }
+}
