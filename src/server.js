@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -80,9 +80,23 @@ function sendJson(res, status, data) {
   send(res, status, JSON.stringify(data), 'application/json; charset=utf-8', { 'Cache-Control': 'no-cache' });
 }
 
-async function sendFile(res, [relativePath, contentType], extraHeaders = {}) {
-  const body = await readFile(path.join(ROOT, relativePath));
-  send(res, 200, body, contentType, { 'Cache-Control': 'no-cache', ...extraHeaders });
+// no-cache + ETag: browsers revalidate on every load and get 304 until the file changes,
+// so a deploy never leaves stale CSS/JS behind.
+async function sendFile(req, res, [relativePath, contentType], extraHeaders = {}) {
+  const filePath = path.join(ROOT, relativePath);
+  const info = await stat(filePath);
+  const etag = `"${info.size.toString(36)}-${Math.floor(info.mtimeMs).toString(36)}"`;
+  const headers = {
+    'Cache-Control': 'no-cache',
+    ETag: etag,
+    'Last-Modified': info.mtime.toUTCString(),
+    ...extraHeaders,
+  };
+  if (req.headers['if-none-match'] === etag) {
+    res.writeHead(304, { ...SECURITY_HEADERS, ...headers });
+    return res.end();
+  }
+  send(res, 200, await readFile(filePath), contentType, headers);
 }
 
 function sendLighthouseJson(req, res, runId) {
@@ -171,14 +185,14 @@ const server = http.createServer(async (req, res) => {
 
     if (url.pathname === '/healthz') return sendJson(res, 200, { ok: true });
     if (url.pathname.startsWith('/api/')) return handleApi(url, req, res);
-    if (STATIC_FILES[url.pathname]) return await sendFile(res, STATIC_FILES[url.pathname]);
+    if (STATIC_FILES[url.pathname]) return await sendFile(req, res, STATIC_FILES[url.pathname]);
 
     // Full Lighthouse report while it is retained, otherwise the stored summary.
     const reportMatch = url.pathname.match(/^\/report\/(\d+)$/);
     if (reportMatch) {
       return db.getRun(Number(reportMatch[1]))?.hasFullReport
-        ? await sendFile(res, FULL_REPORT_PAGE, FULL_REPORT_CSP)
-        : await sendFile(res, SUMMARY_REPORT_PAGE);
+        ? await sendFile(req, res, FULL_REPORT_PAGE, FULL_REPORT_CSP)
+        : await sendFile(req, res, SUMMARY_REPORT_PAGE);
     }
 
     send(res, 404, 'Not Found', 'text/plain; charset=utf-8');
