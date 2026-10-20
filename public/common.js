@@ -38,13 +38,17 @@ export const formatCls = (cls) => (cls === null || cls === undefined ? '–' : c
 
 export const strategyLabel = (s) => (s === 'mobile' ? 'Mobile' : 'Desktop');
 
-export async function getJson(url) {
-  const res = await fetch(url, { headers: { accept: 'application/json' } });
+// The app's root URL, taken from this module's own URL, so the app works under any path prefix
+// (e.g. https://example.com/projects/psi/) as well as at /.
+const APP_ROOT = new URL('./', import.meta.url);
+
+export async function getJson(path) {
+  const res = await fetch(new URL(path, APP_ROOT), { headers: { accept: 'application/json' } });
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
   return res.json();
 }
 
-export const reportHref = (id) => `/report/${encodeURIComponent(id)}`;
+export const reportHref = (id) => new URL(`report/${encodeURIComponent(id)}`, APP_ROOT).pathname;
 
 export function psiHref(url, strategy) {
   const params = new URLSearchParams({ url, form_factor: strategy });

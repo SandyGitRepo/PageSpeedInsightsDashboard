@@ -71,7 +71,7 @@ async function main() {
   const id = location.pathname.split('/').pop();
   let run;
   try {
-    run = await getJson(`/api/runs/${encodeURIComponent(id)}`);
+    run = await getJson(`api/runs/${encodeURIComponent(id)}`);
   } catch (err) {
     document.getElementById('subtitle').textContent = `Report not found (${err.message}).`;
     return;
