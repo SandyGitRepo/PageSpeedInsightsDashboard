@@ -1,6 +1,6 @@
 /* Only styles the bar above the Lighthouse report; the report brings its own CSS. */
-@font-face { font-family: "Rubik"; font-style: normal; font-weight: 400; font-display: swap; src: url("/fonts/rubik-400.woff2") format("woff2"); }
-@font-face { font-family: "Rubik"; font-style: normal; font-weight: 500; font-display: swap; src: url("/fonts/rubik-500.woff2") format("woff2"); }
+@font-face { font-family: "Rubik"; font-style: normal; font-weight: 400; font-display: swap; src: url("fonts/rubik-400.woff2") format("woff2"); }
+@font-face { font-family: "Rubik"; font-style: normal; font-weight: 500; font-display: swap; src: url("fonts/rubik-500.woff2") format("woff2"); }
 
 body { margin: 0; }
 

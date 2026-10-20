@@ -9,7 +9,7 @@ async function main() {
   let run;
   let lhr;
   try {
-    [run, lhr] = await Promise.all([getJson(`/api/runs/${id}`), getJson(`/api/runs/${id}/lighthouse.json`)]);
+    [run, lhr] = await Promise.all([getJson(`api/runs/${id}`), getJson(`api/runs/${id}/lighthouse.json`)]);
   } catch (err) {
     meta.textContent = `Could not load report: ${err.message}`;
     meta.className = 'error';

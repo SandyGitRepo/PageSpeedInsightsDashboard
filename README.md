@@ -70,3 +70,8 @@ JSON API (read-only): `/api/projects`, `/api/latest`,
 
 The app has no write endpoints. Put it behind a reverse proxy (nginx, Caddy, Cloudflare)
 for TLS and rate limiting. Keep `data/` on persistent storage.
+
+The pages use relative URLs, so the app also works under a path prefix such as
+`https://example.com/projects/psi/`. Have the proxy strip the prefix (nginx:
+`location /projects/psi/ { proxy_pass http://127.0.0.1:3000/; }`) and redirect the
+prefix without its trailing slash to the one with it.

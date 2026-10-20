@@ -533,10 +533,10 @@ async function refresh() {
 
   try {
     const [freshMeta, latest, result, uptime] = await Promise.all([
-      getJson('/api/projects'),
-      getJson('/api/latest'),
-      getJson(`/api/runs?${params}`),
-      getJson(`/api/uptime?${uptimeParams}`),
+      getJson('api/projects'),
+      getJson('api/latest'),
+      getJson(`api/runs?${params}`),
+      getJson(`api/uptime?${uptimeParams}`),
     ]);
     if (token !== loadToken) return;
     meta = freshMeta;
@@ -555,7 +555,7 @@ async function refresh() {
 }
 
 async function init() {
-  meta = await getJson('/api/projects');
+  meta = await getJson('api/projects');
   projects = meta.projects;
   allUrls = [...new Set(projects.flatMap((p) => p.urls))];
   populateProjectSelect();
