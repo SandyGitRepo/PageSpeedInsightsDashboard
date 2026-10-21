@@ -148,7 +148,28 @@ a { color: var(--link); text-underline-offset: 2px; }
 }
 
 /* ---------- page header & toolbar ---------- */
-.page-head { padding: 24px 0 12px; }
+.page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; padding: 24px 0 12px; }
+.page-head > div { min-width: 0; }
+.export-button {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border: 1px solid var(--primary);
+  border-radius: 8px;
+  background: var(--primary);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.export-button svg { width: 18px; height: 18px; }
+.export-button:hover:not(:disabled) { filter: brightness(1.08); }
+.export-button:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.export-button:disabled { opacity: 0.55; cursor: default; }
+:root[data-theme="dark"] .export-button { color: #001a35; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .export-button { color: #001a35; } }
 .eyebrow { display: inline-flex; align-items: center; gap: 8px; margin: 0; color: var(--primary); font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
 .eyebrow::before { content: ""; width: 18px; height: 3px; border-radius: 2px; background: var(--accent-gradient); }
 .page-head h1 { margin: 2px 0 4px; color: var(--topbar); font-size: 26px; font-weight: 600; overflow-wrap: anywhere; }
@@ -345,6 +366,7 @@ a .score { text-decoration: none; }
   .refresh-note { padding: 2px 10px; font-size: 11px; }
 
   .page-head { padding: 14px 0 8px; }
+  .export-button { padding: 7px 10px; font-size: 12.5px; }
   .page-head h1 { font-size: 20px; }
   .page-head p.muted { font-size: 12px; }
 

@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gunzipSync } from 'node:zlib';
 import { loadConfig } from './config/env.js';
-import { defaultProject, listTargets, projects, validateProjects } from './config/projects.js';
+import { defaultProject, listTargets, projects, uptimeUrls, validateProjects } from './config/projects.js';
 import { openDb } from './db.js';
 import { startScheduler } from './scheduler.js';
 import { startUptimeScheduler } from './uptime.js';
@@ -21,6 +21,8 @@ const STATIC_FILES = {
   '/lighthouse-report.js': ['public/lighthouse-report.js', 'text/javascript; charset=utf-8'],
   '/vendor/lighthouse/standalone.js': ['vendor/lighthouse/standalone.js', 'text/javascript; charset=utf-8'],
   '/common.js': ['public/common.js', 'text/javascript; charset=utf-8'],
+  '/export.js': ['public/export.js', 'text/javascript; charset=utf-8'],
+  '/xlsx.js': ['public/xlsx.js', 'text/javascript; charset=utf-8'],
   '/styles.css': ['public/styles.css', 'text/css; charset=utf-8'],
   '/lighthouse.css': ['public/lighthouse.css', 'text/css; charset=utf-8'],
   '/vendor/chart.umd.js': ['node_modules/chart.js/dist/chart.umd.js', 'text/javascript; charset=utf-8'],
@@ -52,7 +54,7 @@ if (!config.apiKey) {
   console.error('PSI_API_KEY is not set. Copy .env.example to .env and add your key.');
   process.exit(1);
 }
-const configErrors = validateProjects(projects);
+const configErrors = validateProjects(projects, uptimeUrls);
 if (configErrors.length) {
   console.error(`Invalid src/config/projects.js:\n  ${configErrors.join('\n  ')}`);
   process.exit(1);
@@ -69,7 +71,8 @@ if (dailyRequests > PSI_DAILY_QUOTA) {
 
 const db = openDb(config.dbPath);
 const schedulerStatus = startScheduler({ db, targets, config });
-const uptimeStatus = startUptimeScheduler({ db, targets, config });
+const uptimeTargets = targets.filter((t) => uptimeUrls.includes(t.url));
+const uptimeStatus = startUptimeScheduler({ db, targets: uptimeTargets, config });
 
 function send(res, status, body, contentType, extraHeaders = {}) {
   res.writeHead(status, { ...SECURITY_HEADERS, 'Content-Type': contentType, ...extraHeaders });
@@ -133,13 +136,15 @@ function handleApi(url, req, res) {
     const now = Date.now();
     return sendJson(res, 200, {
       intervalMinutes: config.uptime.intervalMinutes,
-      locations: config.uptime.locations,
+      locations: uptimeStatus?.locations ?? [],
+      urls: uptimeStatus?.urls ?? [],
+      // Checks stored before a URL was removed from uptimeUrls are left out.
       rows: db.uptimeSummary({
         project: searchParams.get('project') || null,
         url: searchParams.get('url') || null,
         from: parseTime(searchParams.get('from'), now - 24 * 60 * 60 * 1000),
         to: parseTime(searchParams.get('to'), now),
-      }),
+      }).filter((row) => uptimeStatus?.urls.includes(row.url)),
     });
   }
 

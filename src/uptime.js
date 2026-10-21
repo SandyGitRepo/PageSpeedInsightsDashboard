@@ -1,6 +1,6 @@
 // Availability + response-time checks from Indian cities via Globalping (https://globalping.io),
 // a free network of community-hosted probes. One HTTP GET per URL per city per cycle.
-import { runWithConcurrency } from './scheduler.js';
+import { runWithConcurrency, scheduleOnClock } from './scheduler.js';
 
 const API = 'https://api.globalping.io/v1/measurements';
 const POLL_MS = 1000;
@@ -65,9 +65,10 @@ export async function measureFromCity({ url, city, token }) {
   return { ...base, up: false, error: reason.slice(0, 300) };
 }
 
+// `targets` are only the URLs listed in uptimeUrls (src/config/projects.js).
 export function startUptimeScheduler({ db, targets, config }) {
   const { locations, intervalMinutes, token } = config.uptime;
-  if (locations.length === 0) return null;
+  if (locations.length === 0 || targets.length === 0) return null;
 
   const testsPerHour = targets.length * locations.length * Math.ceil(60 / intervalMinutes);
   if (!token && testsPerHour > ANONYMOUS_TESTS_PER_HOUR) {
@@ -114,7 +115,6 @@ export function startUptimeScheduler({ db, targets, config }) {
     }
   }
 
-  cycle();
-  setInterval(cycle, intervalMinutes * 60 * 1000);
-  return { locations, intervalMinutes };
+  scheduleOnClock(intervalMinutes, cycle);
+  return { locations, intervalMinutes, urls: targets.map((t) => t.url) };
 }

@@ -2,6 +2,7 @@
   "name": "pagespeed-insights-dashboard",
   "version": "1.0.0",
   "private": true,
+  "license": "MIT",
   "description": "Polls Google PageSpeed Insights for configured project URLs and shows the results on a public dashboard.",
   "type": "module",
   "engines": {

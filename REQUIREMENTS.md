@@ -16,11 +16,13 @@ dashboard.
   no duplicate URL within a project). Invalid config stops the app with a clear error.
 
 ### FR-2 Scheduled fetching
-- Every **15 minutes** (configurable via `FETCH_INTERVAL_MINUTES`) the app calls
+- Every **hour on the hour** (configurable via `FETCH_INTERVAL_MINUTES`, default 60) the app calls
   `GET https://www.googleapis.com/pagespeedonline/v5/runPagespeed` for **every URL**,
   once with `strategy=MOBILE` and once with `strategy=DESKTOP`.
 - Categories requested: performance, accessibility, best-practices, seo.
-- A run starts immediately on startup, then on every interval.
+- Runs are aligned to the wall clock in server local time (60 → 00:00, 01:00, …), i.e. 24 hits
+  per URL and strategy per day. A restart doesn't trigger an extra run; only an empty database
+  runs once immediately on startup.
 - If a cycle is still running when the next one is due, the new cycle is skipped
   (no overlapping cycles).
 - Requests run with bounded concurrency (`FETCH_CONCURRENCY`, default 4) and a
@@ -64,7 +66,8 @@ dashboard.
   (`/analysis/<site>/<id>`); those IDs only exist for tests run on that website.
 
 ### FR-6 Availability and response time by location (India)
-- Every `UPTIME_INTERVAL_MINUTES` (default 15) each URL is fetched with an HTTP GET from
+- Every `UPTIME_INTERVAL_MINUTES` (default 15, aligned to the clock) each URL listed in
+  `uptimeUrls` (src/config/projects.js) is fetched with an HTTP GET from
   probes in Indian cities (`UPTIME_LOCATIONS`, default Mumbai, Delhi, Bengaluru,
   Hyderabad, Chennai, Pune), using the free Globalping probe network.
 - A check is **up** when the response status is below 400. A timeout, connection error or
@@ -103,8 +106,8 @@ dashboard.
 
 ### NFR-3 Quota
 - PSI quota: 25,000 requests/day and 400 requests/100 s per project.
-- 1 URL × 2 strategies × 96 cycles/day = **192 requests/day per URL**, so
-  ~130 URLs is the practical maximum at a 15-minute interval. The app logs a warning
+- 1 URL × 2 strategies × 24 cycles/day = **48 requests/day per URL**, so
+  ~520 URLs is the practical maximum at the default hourly interval. The app logs a warning
   at startup if the configured URLs would exceed the daily quota.
 
 ## 4. Tech stack

@@ -8,6 +8,7 @@ import {
   scoreBadge,
   scoreClass,
   strategyLabel,
+  uptimeTargets,
 } from './common.js';
 
 const PAGE_SIZE = 50;
@@ -144,7 +145,8 @@ function scoreLabel(score) {
 
 function renderStatus() {
   const { scheduler, intervalMinutes } = meta;
-  const parts = [`PageSpeed checked every ${intervalMinutes} min on mobile and desktop`];
+  const every = intervalMinutes === 60 ? 'every hour, on the hour,' : `every ${intervalMinutes} min`;
+  const parts = [`PageSpeed checked ${every} on mobile and desktop`];
   if (scheduler.running) parts.push('a check is running now');
   else if (scheduler.lastFinishedAt) parts.push(`last check ${formatTime(scheduler.lastFinishedAt)}`);
   if (scheduler.nextRunAt && !scheduler.running) parts.push(`next at ${formatTime(scheduler.nextRunAt)}`);
@@ -161,36 +163,53 @@ function kpiTile(label, value, unit, note, status) {
   );
 }
 
-function renderKpis(latestRuns, uptimeRows, filters) {
+// Figures behind the KPI tiles; also used by the Excel export.
+function kpiFigures(latestRuns, uptime, filters) {
+  const uptimeRows = uptime.rows;
   const latest = latestRuns.filter((r) => matchesFilters(r, filters));
-  const scoreTile = (strategy) => {
+  const performance = (strategy) => {
     const scores = latest.filter((r) => r.strategy === strategy && r.performance !== null).map((r) => r.performance);
-    if (scores.length === 0) return kpiTile(`${strategyLabel(strategy)} performance`, '–', '', 'Waiting for first check');
-    const avg = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
-    const [status, text] = scoreLabel(avg);
-    const scope = scores.length > 1 ? `average of ${scores.length} pages` : 'latest check';
-    return kpiTile(`${strategyLabel(strategy)} performance`, String(avg), '/100', `${text} · ${scope}`, status);
+    if (scores.length === 0) return null;
+    return { avg: Math.round(scores.reduce((a, b) => a + b, 0) / scores.length), pages: scores.length };
   };
-
   const checks = uptimeRows.reduce((sum, r) => sum + r.checks, 0);
   const upChecks = uptimeRows.reduce((sum, r) => sum + r.up_checks, 0);
   const timed = uptimeRows.filter((r) => r.total_ms !== null);
+  // Weighted by successful checks per location.
+  const upTotal = timed.reduce((sum, r) => sum + r.up_checks, 0);
+  return {
+    mobile: performance('mobile'),
+    desktop: performance('desktop'),
+    uptimeMonitored: uptime.locations.length > 0 && uptimeTargets(projects, uptime, filters).length > 0,
+    availability: checks ? (upChecks / checks) * 100 : null,
+    locations: timed.length || uptimeRows.length,
+    avgResponseMs: upTotal ? timed.reduce((sum, r) => sum + r.total_ms * r.up_checks, 0) / upTotal : null,
+  };
+}
+
+function renderKpis(kpis, filters) {
+  const scoreTile = (strategy) => {
+    const figure = kpis[strategy];
+    if (!figure) return kpiTile(`${strategyLabel(strategy)} performance`, '–', '', 'Waiting for first check');
+    const [status, text] = scoreLabel(figure.avg);
+    const scope = figure.pages > 1 ? `average of ${figure.pages} pages` : 'latest check';
+    return kpiTile(`${strategyLabel(strategy)} performance`, String(figure.avg), '/100', `${text} · ${scope}`, status);
+  };
+
   const rangeLabel = RANGE_LABELS[filters.range];
-  const availability = checks ? (upChecks / checks) * 100 : null;
-  const availabilityTile = checks
+  const { availability, avgResponseMs: avgResponse } = kpis;
+  const noData = kpis.uptimeMonitored ? 'Waiting for first check' : 'Location checks are off for the selected pages';
+  const availabilityTile = availability !== null
     ? kpiTile(
         'Availability · India',
         formatAvailability(availability).replace('%', ''),
         '%',
-        `${rangeLabel} · ${timed.length || uptimeRows.length} locations`,
+        `${rangeLabel} · ${kpis.locations} locations`,
         availability >= 99.9 ? 'good' : availability >= 99 ? 'avg' : 'poor',
       )
-    : kpiTile('Availability · India', '–', '', 'Waiting for first check');
-  // Weighted by successful checks per location.
-  const upTotal = timed.reduce((sum, r) => sum + r.up_checks, 0);
-  const avgResponse = upTotal ? timed.reduce((sum, r) => sum + r.total_ms * r.up_checks, 0) / upTotal : null;
+    : kpiTile('Availability · India', '–', '', noData);
   const responseTile = avgResponse === null
-    ? kpiTile('Avg response time · India', '–', '', 'Waiting for first check')
+    ? kpiTile('Avg response time · India', '–', '', noData)
     : kpiTile('Avg response time · India', (avgResponse / 1000).toFixed(2), 's', `${rangeLabel} · all locations`);
 
   $('kpis').replaceChildren(scoreTile('mobile'), scoreTile('desktop'), availabilityTile, responseTile);
@@ -390,7 +409,8 @@ function labelSegments() {
 
 function renderUptime(uptime, filters) {
   const intervalMs = uptime.intervalMinutes * 60_000;
-  $('uptime-card').hidden = uptime.locations.length === 0;
+  const targets = uptimeTargets(projects, uptime, filters);
+  $('uptime-card').hidden = uptime.locations.length === 0 || targets.length === 0;
   $('uptime-sub').textContent =
     `HTTP GET from probes in ${uptime.locations.length} Indian cities every ${uptime.intervalMinutes} min · ` +
     `${RANGE_LABELS[filters.range]} · response time is the average of successful checks.`;
@@ -402,9 +422,6 @@ function renderUptime(uptime, filters) {
     rowsByUrl.get(key).set(row.location, row);
   }
 
-  const targets = projects
-    .filter((p) => !filters.project || p.name === filters.project)
-    .flatMap((p) => p.urls.filter((u) => !filters.url || u === filters.url).map((url) => ({ project: p.name, url })));
   const maxTotal = Math.max(1, ...uptime.rows.map((r) => r.total_ms ?? 0));
   const columns = isCompact() ? 3 : 6;
 
@@ -502,6 +519,45 @@ function renderHistory() {
 let loadToken = 0;
 let nextRefreshAt = 0;
 let lastUpdatedAt = null;
+// Data behind the current render, so the export matches what is on screen.
+let shown = null;
+
+// ---------- Excel export ----------
+
+const selectedText = (name) => form.elements[name].selectedOptions[0]?.text ?? '';
+
+async function exportExcel() {
+  if (!shown) return;
+  const button = $('export-button');
+  button.disabled = true;
+  $('export-label').textContent = 'Preparing…';
+  try {
+    const { exportWorkbook } = await import('./export.js');
+    const dashboardUrl = location.href.split('#')[0];
+    await exportWorkbook({
+      ...shown,
+      runs,
+      projects,
+      allUrls,
+      metricLabel: METRIC_LABELS[shown.filters.metric],
+      labels: {
+        project: shown.filters.project || 'All projects',
+        url: shown.filters.url || 'All URLs',
+        strategy: selectedText('strategy'),
+        metric: METRIC_LABELS[shown.filters.metric],
+        range: RANGE_LABELS[shown.filters.range],
+      },
+      dashboardUrl,
+      sectionHref: (id) => `${dashboardUrl}#${id}`,
+      reportUrl: (id) => new URL(reportHref(id), location.href).href,
+    });
+  } catch (err) {
+    alert(`Could not create the Excel file: ${err.message}`);
+  } finally {
+    button.disabled = false;
+    $('export-label').textContent = 'Export to Excel';
+  }
+}
 
 function renderRefreshNote() {
   const note = $('refresh-note');
@@ -542,7 +598,10 @@ async function refresh() {
     meta = freshMeta;
     renderStatus();
     runs = result.runs;
-    renderKpis(latest.runs, uptime.rows, filters);
+    const kpis = kpiFigures(latest.runs, uptime, filters);
+    shown = { filters, span, latestRuns: latest.runs, uptime, kpis };
+    $('export-button').disabled = false;
+    renderKpis(kpis, filters);
     renderLatest(latest.runs, filters);
     renderChart(filters, span);
     renderUptime(uptime, filters);
@@ -555,6 +614,9 @@ async function refresh() {
 }
 
 async function init() {
+  // Section links (e.g. from the Excel report) target content that renders after load,
+  // and writeQueryString drops the hash, so remember it and scroll once data is shown.
+  const anchor = location.hash.slice(1);
   meta = await getJson('api/projects');
   projects = meta.projects;
   allUrls = [...new Set(projects.flatMap((p) => p.urls))];
@@ -571,11 +633,13 @@ async function init() {
   form.addEventListener('submit', (event) => event.preventDefault());
   $('prev-page').addEventListener('click', () => (page--, renderHistory()));
   $('next-page').addEventListener('click', () => (page++, renderHistory()));
+  $('export-button').addEventListener('click', exportExcel);
   window.addEventListener('resize', () => requestAnimationFrame(labelSegments));
   // Colspans, labels and chart sizing depend on the layout, so re-render when it switches.
   compactQuery.addEventListener('change', () => refresh());
 
   await refresh();
+  if (anchor) document.getElementById(anchor)?.scrollIntoView();
   // Ticks every second for the countdown; data is only fetched every REFRESH_MS,
   // and not while the tab is hidden (it catches up as soon as the tab is visible again).
   setInterval(() => {

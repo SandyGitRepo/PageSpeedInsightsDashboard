@@ -1,19 +1,34 @@
 // Project → page URL mapping.
 // Every URL listed here is checked on mobile and desktop every FETCH_INTERVAL_MINUTES.
-// Quota note: each URL costs 192 PSI requests/day at a 15-minute interval (limit 25,000/day).
+// Quota note: each URL costs 48 PSI requests/day at an hourly interval (limit 25,000/day).
 export const projects = {
   'Personal site': [
     'https://www.sandeeplokhande.com/'
   ],
-  'Watch 1 site': [
+  'Bajaj Housing Finance': [
     'https://www.bajajhousingfinance.in/',
-  ]
+  ],
+  'ICICI Home Finance': [
+    'https://www.icicihfc.com/',
+  ],
+  'Aadhar Housing Finance': [
+    'https://aadharhousing.com/',
+  ],
+  'HDFC Home Loans': [
+    'https://homeloans.hdfc.bank.in/',
+  ],
 };
 
 // Project the dashboard selects when opened without filters ('' = all projects).
-export const defaultProject = 'Watch 1 site';
+export const defaultProject = 'Bajaj Housing Finance';
 
-export function validateProjects(map) {
+// URLs that also get availability/response-time checks from Indian cities (Globalping).
+// Every other URL gets PageSpeed checks only. Each URL here must also be listed in `projects`.
+export const uptimeUrls = [
+  'https://www.bajajhousingfinance.in/',
+];
+
+export function validateProjects(map, uptime = []) {
   const errors = [];
   if (!map || typeof map !== 'object' || Object.keys(map).length === 0) {
     errors.push('No projects configured.');
@@ -39,6 +54,10 @@ export function validateProjects(map) {
       if (seen.has(url)) errors.push(`Project "${name}": duplicate URL "${url}".`);
       seen.add(url);
     }
+  }
+  const configured = new Set(Object.values(map ?? {}).flat());
+  for (const url of uptime) {
+    if (!configured.has(url)) errors.push(`uptimeUrls: "${url}" is not listed in any project.`);
   }
   return errors;
 }

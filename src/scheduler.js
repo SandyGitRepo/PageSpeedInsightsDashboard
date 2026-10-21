@@ -11,13 +11,35 @@ export async function runWithConcurrency(items, limit, worker) {
   await Promise.all(lanes);
 }
 
+// Next wall-clock slot (server local time) on a grid of `intervalMinutes` counted from midnight:
+// 60 → 01:00, 02:00, …; 15 → :00, :15, :30, :45. setMinutes handles day rollover and DST.
+export function nextSlot(now, intervalMinutes) {
+  const midnight = new Date(now);
+  midnight.setHours(0, 0, 0, 0);
+  const elapsed = (now - midnight.getTime()) / 60_000;
+  const next = new Date(midnight);
+  next.setMinutes((Math.floor(elapsed / intervalMinutes) + 1) * intervalMinutes);
+  return next.getTime();
+}
+
+// Runs `task` at every slot. A timer chain (not setInterval) so runs never drift off the clock.
+export function scheduleOnClock(intervalMinutes, task, onSchedule = () => {}) {
+  const arm = () => {
+    const at = nextSlot(Date.now(), intervalMinutes);
+    onSchedule(at);
+    setTimeout(() => {
+      arm();
+      task();
+    }, at - Date.now());
+  };
+  arm();
+}
+
 export function startScheduler({ db, targets, config }) {
-  const intervalMs = config.intervalMinutes * 60 * 1000;
   const status = { running: false, lastStartedAt: null, lastFinishedAt: null, nextRunAt: null, lastCycle: null };
   const jobs = targets.flatMap((target) => STRATEGIES.map((strategy) => ({ ...target, strategy })));
 
   async function cycle() {
-    status.nextRunAt = Date.now() + intervalMs;
     if (status.running) {
       console.warn('[scheduler] previous cycle still running, skipping this one');
       return;
@@ -63,7 +85,9 @@ export function startScheduler({ db, targets, config }) {
     console.log(`[scheduler] cycle done in ${seconds}s: ${ok} ok, ${failed} failed, ${pruned} pruned`);
   }
 
-  cycle();
-  setInterval(cycle, intervalMs);
+  // Runs only on the clock (e.g. every hour on the hour), so a restart doesn't add an off-schedule
+  // hit. The one exception is a database with no hits yet, so a fresh install shows data at once.
+  if (!db.hasRuns()) cycle();
+  scheduleOnClock(config.intervalMinutes, cycle, (at) => (status.nextRunAt = at));
   return status;
 }

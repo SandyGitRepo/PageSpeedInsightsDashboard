@@ -15,7 +15,7 @@ export function loadConfig() {
     apiKey: (process.env.PSI_API_KEY ?? '').trim(),
     port: int('PORT', 3000, 1, 65535),
     host: process.env.HOST?.trim() || '0.0.0.0',
-    intervalMinutes: int('FETCH_INTERVAL_MINUTES', 15, 1, 1440),
+    intervalMinutes: int('FETCH_INTERVAL_MINUTES', 60, 1, 1440),
     concurrency: int('FETCH_CONCURRENCY', 4, 1, 20),
     requestTimeoutMs: int('REQUEST_TIMEOUT_SECONDS', 120, 10, 600) * 1000,
     retentionDays: int('RETENTION_DAYS', 30, 1, 3650),

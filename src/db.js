@@ -85,6 +85,7 @@ export function openDb(dbPath) {
     VALUES (:project, :url, :location, :checkedAt, :up, :statusCode, :error,
       :dns, :tcp, :tls, :firstByte, :download, :total, :network)
   `);
+  const anyRun = db.prepare('SELECT 1 FROM runs LIMIT 1');
   const pruneUptime = db.prepare('DELETE FROM uptime_checks WHERE checked_at < ?');
   const pruneRuns = db.prepare('DELETE FROM runs WHERE fetched_at < ?');
   const pruneReports = db.prepare(
@@ -161,6 +162,8 @@ export function openDb(dbPath) {
     getReportGzip: (runId) => getReport.get(runId)?.lhr_gzip ?? null,
 
     latestRuns: () => latest.all(),
+
+    hasRuns: () => anyRun.get() !== undefined,
 
     pruneReportsOlderThan: (cutoff) => pruneReports.run(cutoff).changes,
 

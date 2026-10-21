@@ -36,6 +36,17 @@ export function formatMs(ms) {
 
 export const formatCls = (cls) => (cls === null || cls === undefined ? '–' : cls.toFixed(3));
 
+// Pages in the current filter that have location checks (uptimeUrls in src/config/projects.js).
+export function uptimeTargets(projects, uptime, filters) {
+  return projects
+    .filter((p) => !filters.project || p.name === filters.project)
+    .flatMap((p) =>
+      p.urls
+        .filter((u) => (!filters.url || u === filters.url) && uptime.urls.includes(u))
+        .map((url) => ({ project: p.name, url })),
+    );
+}
+
 export const strategyLabel = (s) => (s === 'mobile' ? 'Mobile' : 'Desktop');
 
 // The app's root URL, taken from this module's own URL, so the app works under any path prefix
